@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #FAFAF8;
+  --color-foreground: #1A1A1A;
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-bricolage);
+  --font-mono: var(--font-jetbrains);
+
+  --color-vynt: #52014E;
+  --color-vynt-mid: #7A1A74;
+  --color-vynt-light: #F5EDF5;
+  --color-gold: #E5A100;
+  --color-gold-light: #FFF8E1;
+  --color-orange: #F07020;
+  --color-surface: #F0EFEC;
+  --color-border: #E4E2DD;
+  --color-text-1: #1A1A1A;
+  --color-text-2: #4A4A4A;
+  --color-text-3: #8A8A8A;
+  --color-green: #1A9F53;
+  --color-red: #D94040;
+  --color-amber: #C08800;
+  --color-blue: #2D6BCF;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-scroll {
+  animation: scroll 20s linear infinite;
+}
