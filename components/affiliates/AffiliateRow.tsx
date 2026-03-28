@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, X, Banknote } from 'lucide-react';
 import { Affiliate, AffiliateType, AffiliateStatus } from '@/lib/types';
-import { formatNaira, formatPercent, getInitials, cn } from '@/lib/utils';
+import { formatNaira, formatPercent, formatDate, getInitials, cn } from '@/lib/utils';
 import { COMMISSION } from '@/lib/constants';
 import StatusBadge from './StatusBadge';
 
@@ -12,6 +12,7 @@ interface AffiliateRowProps {
   affiliate: Affiliate;
   rank: number;
   onUpdate?: (id: string, updates: Partial<Affiliate>) => void;
+  onRequestPay?: (affiliate: Affiliate) => void;
 }
 
 const typeBadgeStyles: Record<string, string> = {
@@ -32,7 +33,7 @@ function conversionColor(rate: number): string {
   return 'text-red';
 }
 
-export default function AffiliateRow({ affiliate, rank, onUpdate }: AffiliateRowProps) {
+export default function AffiliateRow({ affiliate, rank, onUpdate, onRequestPay }: AffiliateRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [editingType, setEditingType] = useState(false);
   const [editingStatus, setEditingStatus] = useState(false);
@@ -112,7 +113,7 @@ export default function AffiliateRow({ affiliate, rank, onUpdate }: AffiliateRow
               <p className="text-xs font-semibold uppercase tracking-wider text-text-3 mb-3">
                 Earnings Breakdown
               </p>
-              <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="grid grid-cols-3 gap-3 mb-2">
                 <div className="bg-white rounded-lg border border-border p-4">
                   <p className="text-xs text-text-3 mb-1">Signup Commissions</p>
                   <p className="text-lg font-bold text-text-1 font-[var(--font-display)]">
@@ -125,31 +126,48 @@ export default function AffiliateRow({ affiliate, rank, onUpdate }: AffiliateRow
                   <p className="text-lg font-bold text-text-1 font-[var(--font-display)]">
                     {formatNaira(purchaseEarnings)}
                   </p>
-                  <p className="text-xs text-text-3 mt-1">{a.totalOrders} orders x {formatNaira(COMMISSION.PURCHASE)}</p>
+                  <p className="text-xs text-text-3 mt-1">
+                    {a.totalOrders} orders x {formatNaira(COMMISSION.PURCHASE)} (min {formatNaira(COMMISSION.PURCHASE_MIN_ORDER)} order)
+                  </p>
                 </div>
                 <div className="bg-white rounded-lg border border-border p-4">
                   <p className="text-xs text-text-3 mb-1">Seller Commissions</p>
                   <p className="text-lg font-bold text-text-1 font-[var(--font-display)]">
                     {formatNaira(sellerEarnings)}
                   </p>
-                  <p className="text-xs text-text-3 mt-1">{a.totalSellers} sellers x {formatNaira(COMMISSION.SELLER_STORE)}</p>
+                  <p className="text-xs text-text-3 mt-1">
+                    {a.totalSellers} sellers x {formatNaira(COMMISSION.SELLER_STORE)} ({COMMISSION.SELLER_MIN_LISTINGS}+ listings)
+                  </p>
                 </div>
               </div>
+              <p className="text-[11px] text-text-3 mb-5">
+                Purchase commission requires minimum {formatNaira(COMMISSION.PURCHASE_MIN_ORDER)} order. Seller commission requires {COMMISSION.SELLER_MIN_LISTINGS}+ listings.
+              </p>
 
               <div className="flex items-center gap-6 text-sm">
                 <div>
                   <span className="text-text-3">Paid: </span>
                   <span className="font-mono font-medium text-text-1">{formatNaira(a.totalPaid)}</span>
+                  {a.lastPaidDate && (
+                    <span className="text-xs text-text-3 ml-1">({formatDate(a.lastPaidDate)})</span>
+                  )}
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="text-text-3">Pending: </span>
                   <span className="font-mono font-medium text-gold">{formatNaira(a.pendingBalance)}</span>
+                  {a.pendingBalance > 0 && (
+                    <button
+                      onClick={() => onRequestPay?.(a)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium border border-green/30 text-green rounded-lg hover:bg-green/5 transition-colors"
+                    >
+                      <Banknote size={12} />
+                      Pay
+                    </button>
+                  )}
                 </div>
                 <div>
                   <span className="text-text-3">Joined: </span>
-                  <span className="font-medium text-text-1">
-                    {new Date(a.dateJoined).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
+                  <span className="font-medium text-text-1">{formatDate(a.dateJoined)}</span>
                 </div>
                 {a.notes && !editingNote && (
                   <div className="flex-1 text-text-3 italic truncate">
@@ -167,7 +185,6 @@ export default function AffiliateRow({ affiliate, rank, onUpdate }: AffiliateRow
                   View Full Profile
                 </Link>
 
-                {/* Edit Type */}
                 {editingType ? (
                   <div className="flex items-center gap-1">
                     <select
@@ -196,7 +213,6 @@ export default function AffiliateRow({ affiliate, rank, onUpdate }: AffiliateRow
                   </button>
                 )}
 
-                {/* Change Status */}
                 {editingStatus ? (
                   <div className="flex items-center gap-1">
                     <select
@@ -225,7 +241,6 @@ export default function AffiliateRow({ affiliate, rank, onUpdate }: AffiliateRow
                   </button>
                 )}
 
-                {/* Add/Edit Note */}
                 {editingNote ? (
                   <div className="flex items-center gap-1 flex-1">
                     <input

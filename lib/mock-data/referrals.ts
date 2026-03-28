@@ -59,7 +59,7 @@ function generateReferrals(): Referral[] {
       const rand = seeded();
       const status: Referral['status'] = rand < 0.15 ? 'seller' : rand < 0.40 ? 'purchased' : 'signed_up';
       const hasPurchased = status === 'purchased' || status === 'seller';
-      const orderAmount = hasPurchased ? Math.round((8000 + seeded() * 45000) / 500) * 500 : null;
+      const orderAmount = hasPurchased ? Math.round((15000 + seeded() * 40000) / 500) * 500 : null;
       const dateReferred = seededDate('2025-12-20', '2026-03-25');
       const orderDate = hasPurchased ? seededDate(dateReferred, '2026-03-26') : null;
 
@@ -73,7 +73,7 @@ function generateReferrals(): Referral[] {
         orderAmount,
         orderDate,
         isSeller: status === 'seller',
-        listingCount: status === 'seller' ? Math.floor(seeded() * 15) + 5 : 0,
+        listingCount: status === 'seller' ? Math.floor(seeded() * 15) + 10 : 0,
       });
       id++;
     }

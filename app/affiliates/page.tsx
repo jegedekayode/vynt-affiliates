@@ -5,6 +5,8 @@ import PageHeader from '@/components/layout/PageHeader';
 import FilterBar from '@/components/affiliates/FilterBar';
 import AffiliatesTable from '@/components/affiliates/AffiliatesTable';
 import AddAffiliateModal from '@/components/affiliates/AddAffiliateModal';
+import PaymentConfirmModal from '@/components/affiliates/PaymentConfirmModal';
+import Toast from '@/components/ui/Toast';
 import { Affiliate, AffiliateFilters } from '@/lib/types';
 import { getAffiliates } from '@/lib/api';
 import { formatNaira, formatPercent } from '@/lib/utils';
@@ -66,6 +68,8 @@ export default function AffiliatesPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [payTarget, setPayTarget] = useState<Affiliate | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -91,6 +95,22 @@ export default function AffiliatesPage() {
       prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
     );
   }, []);
+
+  const handleRequestPay = useCallback((affiliate: Affiliate) => {
+    setPayTarget(affiliate);
+  }, []);
+
+  const handlePayConfirm = useCallback(() => {
+    if (!payTarget) return;
+    const amount = payTarget.pendingBalance;
+    handleUpdateAffiliate(payTarget.id, {
+      totalPaid: payTarget.totalPaid + amount,
+      pendingBalance: 0,
+      lastPaidDate: new Date().toISOString().split('T')[0],
+    });
+    setPayTarget(null);
+    setToastMessage(`${formatNaira(amount)} payment to ${payTarget.name} marked as paid`);
+  }, [payTarget, handleUpdateAffiliate]);
 
   return (
     <>
@@ -128,6 +148,7 @@ export default function AffiliatesPage() {
         <AffiliatesTable
           affiliates={paginatedAffiliates}
           onUpdate={handleUpdateAffiliate}
+          onRequestPay={handleRequestPay}
         />
       )}
 
@@ -177,6 +198,20 @@ export default function AffiliatesPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleAddAffiliate}
+      />
+
+      <PaymentConfirmModal
+        open={!!payTarget}
+        affiliateName={payTarget?.name || ''}
+        amount={payTarget?.pendingBalance || 0}
+        onConfirm={handlePayConfirm}
+        onClose={() => setPayTarget(null)}
+      />
+
+      <Toast
+        message={toastMessage}
+        visible={!!toastMessage}
+        onDone={() => setToastMessage('')}
       />
     </>
   );

@@ -96,6 +96,7 @@ export default function AddAffiliateModal({ open, onClose, onSave }: AddAffiliat
       totalPaid: 0,
       pendingBalance: 0,
       lastActiveDate: new Date().toISOString().split('T')[0],
+      lastPaidDate: null,
       conversionRate: 0,
       notes: notes.trim() || null,
     };

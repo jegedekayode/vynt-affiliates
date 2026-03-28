@@ -8,6 +8,7 @@ import AffiliateRow from './AffiliateRow';
 interface AffiliatesTableProps {
   affiliates: Affiliate[];
   onUpdate?: (id: string, updates: Partial<Affiliate>) => void;
+  onRequestPay?: (affiliate: Affiliate) => void;
 }
 
 type SortKey = 'totalSignups' | 'totalOrders' | 'totalGmv' | 'totalSellers' | 'totalEarned' | 'conversionRate';
@@ -26,7 +27,7 @@ const columns: { label: string; className: string; sortKey?: SortKey }[] = [
   { label: '', className: 'pr-4 pl-2 w-10' },
 ];
 
-export default function AffiliatesTable({ affiliates, onUpdate }: AffiliatesTableProps) {
+export default function AffiliatesTable({ affiliates, onUpdate, onRequestPay }: AffiliatesTableProps) {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -86,6 +87,7 @@ export default function AffiliatesTable({ affiliates, onUpdate }: AffiliatesTabl
                 affiliate={affiliate}
                 rank={i + 1}
                 onUpdate={onUpdate}
+                onRequestPay={onRequestPay}
               />
             ))}
           </tbody>

@@ -1,10 +1,16 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, MapPin } from 'lucide-react';
-import { getAffiliateById, getAffiliateReferrals, getAffiliateEvents } from '@/lib/api';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Calendar, MapPin, Banknote } from 'lucide-react';
+import { getAffiliateById, getAffiliateReferrals, getAffiliateEvents, updateAffiliate } from '@/lib/api';
 import { formatNaira, formatDate, formatRelativeTime, getInitials } from '@/lib/utils';
 import { COMMISSION } from '@/lib/constants';
 import StatusBadge from '@/components/affiliates/StatusBadge';
-import { notFound } from 'next/navigation';
+import PaymentConfirmModal from '@/components/affiliates/PaymentConfirmModal';
+import Toast from '@/components/ui/Toast';
+import { Affiliate, Referral, ReferralEvent } from '@/lib/types';
 
 const typeBadgeStyles: Record<string, string> = {
   vcs: 'bg-blue/10 text-blue',
@@ -30,24 +36,66 @@ const refStatusLabels: Record<string, string> = {
   seller: 'Seller',
 };
 
-export default async function AffiliateDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const [affiliate, referrals, events] = await Promise.all([
-    getAffiliateById(id),
-    getAffiliateReferrals(id),
-    getAffiliateEvents(id),
-  ]);
+export default function AffiliateDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
 
-  if (!affiliate) notFound();
+  const [affiliate, setAffiliate] = useState<Affiliate | null>(null);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [events, setEvents] = useState<ReferralEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  useEffect(() => {
+    Promise.all([
+      getAffiliateById(id),
+      getAffiliateReferrals(id),
+      getAffiliateEvents(id),
+    ]).then(([aff, refs, evts]) => {
+      setAffiliate(aff ?? null);
+      setReferrals(refs);
+      setEvents(evts);
+      setLoading(false);
+    });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="inline-block w-6 h-6 border-2 border-vynt/20 border-t-vynt rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!affiliate) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-sm text-text-3">Affiliate not found.</p>
+        <Link href="/affiliates" className="text-sm text-vynt hover:underline mt-2 inline-block">
+          Back to Affiliates
+        </Link>
+      </div>
+    );
+  }
 
   const a = affiliate;
   const signupEarnings = a.totalSignups * COMMISSION.SIGNUP;
   const purchaseEarnings = a.totalOrders * COMMISSION.PURCHASE;
   const sellerEarnings = a.totalSellers * COMMISSION.SELLER_STORE;
+
+  function handlePayConfirm() {
+    const amount = a.pendingBalance;
+    const updates = {
+      totalPaid: a.totalPaid + amount,
+      pendingBalance: 0,
+      lastPaidDate: new Date().toISOString().split('T')[0],
+    };
+    updateAffiliate(a.id, updates);
+    setAffiliate({ ...a, ...updates });
+    setPayModalOpen(false);
+    setToastMessage(`${formatNaira(amount)} payment to ${a.name} marked as paid`);
+  }
 
   return (
     <>
@@ -115,27 +163,46 @@ export default async function AffiliateDetailPage({
             >
               {card.value}
             </p>
+            {card.label === 'Paid' && a.lastPaidDate && (
+              <p className="text-[10px] text-text-3 mt-1">{formatDate(a.lastPaidDate)}</p>
+            )}
+            {card.label === 'Pending' && a.pendingBalance > 0 && (
+              <button
+                onClick={() => setPayModalOpen(true)}
+                className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 text-[11px] font-medium border border-green/30 text-green rounded-lg hover:bg-green/5 transition-colors"
+              >
+                <Banknote size={12} />
+                Pay
+              </button>
+            )}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-3 gap-3 mb-2">
         <div className="bg-white rounded-xl border border-border p-5">
           <p className="text-xs text-text-3 mb-1">Signup Commissions</p>
           <p className="text-xl font-bold text-text-1 font-[var(--font-display)]">{formatNaira(signupEarnings)}</p>
-          <p className="text-xs text-text-3 mt-1">{a.totalSignups} x {formatNaira(COMMISSION.SIGNUP)}</p>
+          <p className="text-xs text-text-3 mt-1">{a.totalSignups} signups x {formatNaira(COMMISSION.SIGNUP)}</p>
         </div>
         <div className="bg-white rounded-xl border border-border p-5">
           <p className="text-xs text-text-3 mb-1">Purchase Commissions</p>
           <p className="text-xl font-bold text-text-1 font-[var(--font-display)]">{formatNaira(purchaseEarnings)}</p>
-          <p className="text-xs text-text-3 mt-1">{a.totalOrders} x {formatNaira(COMMISSION.PURCHASE)}</p>
+          <p className="text-xs text-text-3 mt-1">
+            {a.totalOrders} orders x {formatNaira(COMMISSION.PURCHASE)} (min {formatNaira(COMMISSION.PURCHASE_MIN_ORDER)} order)
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-border p-5">
           <p className="text-xs text-text-3 mb-1">Seller Commissions</p>
           <p className="text-xl font-bold text-text-1 font-[var(--font-display)]">{formatNaira(sellerEarnings)}</p>
-          <p className="text-xs text-text-3 mt-1">{a.totalSellers} x {formatNaira(COMMISSION.SELLER_STORE)}</p>
+          <p className="text-xs text-text-3 mt-1">
+            {a.totalSellers} sellers x {formatNaira(COMMISSION.SELLER_STORE)} ({COMMISSION.SELLER_MIN_LISTINGS}+ listings)
+          </p>
         </div>
       </div>
+      <p className="text-[11px] text-text-3 mb-8">
+        Purchase commission requires minimum {formatNaira(COMMISSION.PURCHASE_MIN_ORDER)} order. Seller commission requires {COMMISSION.SELLER_MIN_LISTINGS}+ listings.
+      </p>
 
       <div className="bg-white rounded-xl border border-border overflow-hidden mb-8">
         <div className="p-5 border-b border-border">
@@ -221,6 +288,20 @@ export default async function AffiliateDetailPage({
           <p className="text-sm text-text-2">{a.notes}</p>
         </div>
       )}
+
+      <PaymentConfirmModal
+        open={payModalOpen}
+        affiliateName={a.name}
+        amount={a.pendingBalance}
+        onConfirm={handlePayConfirm}
+        onClose={() => setPayModalOpen(false)}
+      />
+
+      <Toast
+        message={toastMessage}
+        visible={!!toastMessage}
+        onDone={() => setToastMessage('')}
+      />
     </>
   );
 }

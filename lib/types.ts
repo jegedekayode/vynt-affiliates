@@ -16,6 +16,7 @@ export interface Affiliate {
   totalPaid: number;
   pendingBalance: number;
   lastActiveDate: string;
+  lastPaidDate: string | null;
   conversionRate: number;
   notes: string | null;
 }
