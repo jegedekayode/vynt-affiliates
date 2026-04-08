@@ -34,6 +34,17 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display), system-ui, sans-serif;
 }
 
+/* Portal — all text uses Inter */
+.portal-root,
+.portal-root h1,
+.portal-root h2,
+.portal-root h3,
+.portal-root h4,
+.portal-root h5,
+.portal-root h6 {
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

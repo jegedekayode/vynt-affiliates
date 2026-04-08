@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Outfit, JetBrains_Mono, Bricolage_Grotesque } from 'next/font/google';
+import { Outfit, JetBrains_Mono, Bricolage_Grotesque, Inter } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
 
@@ -21,6 +21,12 @@ const bricolage = Bricolage_Grotesque({
   weight: ['400', '600', '700', '800'],
 });
 
+const inter = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+});
+
 export const metadata: Metadata = {
   title: 'VYNT Affiliates — Admin Dashboard',
   description: 'Manage affiliates, track referrals, and grow the VYNT community.',
@@ -34,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${jetbrains.variable} ${bricolage.variable} h-full antialiased`}
+      className={`${outfit.variable} ${jetbrains.variable} ${bricolage.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
         <Sidebar />
