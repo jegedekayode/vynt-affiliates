@@ -14,40 +14,30 @@ const cards = [
     label: 'Total Affiliates',
     icon: Users,
     format: (v: number) => v.toString(),
-    change: '+3 this month',
-    changePositive: true,
   },
   {
     key: 'totalSignups' as const,
     label: 'Signups Driven',
     icon: UserPlus,
     format: (v: number) => v.toString(),
-    change: '+74 this week',
-    changePositive: true,
   },
   {
     key: 'totalOrders' as const,
     label: 'Total Orders',
     icon: ShoppingBag,
     format: (v: number) => v.toString(),
-    change: '+18 this week',
-    changePositive: true,
   },
   {
-    key: 'totalGmv' as const,
-    label: 'Total GMV',
+    key: 'totalSellers' as const,
+    label: 'Sellers Recruited',
     icon: TrendingUp,
-    format: (v: number) => formatNaira(v),
-    change: '+12.4%',
-    changePositive: true,
+    format: (v: number) => v.toString(),
   },
   {
     key: 'totalEarned' as const,
     label: 'Commissions Earned',
     icon: Coins,
     format: (v: number) => formatNaira(v),
-    change: '+8.2%',
-    changePositive: true,
     highlight: true,
   },
 ];
@@ -94,19 +84,6 @@ export default function SummaryCards({ summary }: SummaryCardsProps) {
               }`}
             >
               {card.format(value)}
-            </div>
-            <div className="mt-2">
-              <span
-                className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  card.highlight
-                    ? 'bg-white/15 text-white/80'
-                    : card.changePositive
-                    ? 'bg-green/10 text-green'
-                    : 'bg-red/10 text-red'
-                }`}
-              >
-                {card.change}
-              </span>
             </div>
           </div>
         );

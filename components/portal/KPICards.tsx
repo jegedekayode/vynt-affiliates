@@ -36,8 +36,8 @@ export default function KPICards({ signups, purchases, sellers, gmv }: KPICardsP
     },
     {
       label: 'GMV Driven',
-      value: formatNaira(gmv),
-      note: 'total order value',
+      value: gmv > 0 ? formatNaira(gmv) : '—',
+      note: 'coming soon',
       icon: TrendingUp,
       iconBg: 'bg-gold/10',
       iconColor: 'text-amber',

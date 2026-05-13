@@ -19,6 +19,18 @@ export interface Affiliate {
   lastPaidDate: string | null;
   conversionRate: number;
   notes: string | null;
+  // Fields populated by real API
+  email?: string;
+  username?: string;
+  profileImg?: string | null;
+  phone?: string | null;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  hasStore?: boolean;
+  isVerified?: boolean;
+  city?: string;
+  state?: string;
 }
 
 export interface Referral {
@@ -63,6 +75,7 @@ export interface DashboardSummary {
 
 export interface LeaderboardEntry {
   rank: number;
+  id?: string;
   name: string;
   campus: string;
   totalSignups: number;

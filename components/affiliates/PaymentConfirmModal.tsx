@@ -10,6 +10,7 @@ interface PaymentConfirmModalProps {
   amount: number;
   onConfirm: () => void;
   onClose: () => void;
+  loading?: boolean;
 }
 
 export default function PaymentConfirmModal({
@@ -18,6 +19,7 @@ export default function PaymentConfirmModal({
   amount,
   onConfirm,
   onClose,
+  loading = false,
 }: PaymentConfirmModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -72,8 +74,12 @@ export default function PaymentConfirmModal({
           </button>
           <button
             onClick={onConfirm}
-            className="px-5 py-2 text-sm font-medium bg-green text-white rounded-lg hover:bg-green/90 transition-colors"
+            disabled={loading}
+            className="px-5 py-2 text-sm font-medium bg-green text-white rounded-lg hover:bg-green/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
           >
+            {loading && (
+              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            )}
             Confirm Payment
           </button>
         </div>

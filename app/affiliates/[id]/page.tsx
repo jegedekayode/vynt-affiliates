@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Calendar, MapPin, Banknote } from 'lucide-react';
-import { getAffiliateById, getAffiliateReferrals, getAffiliateEvents, updateAffiliate } from '@/lib/api';
-import { formatNaira, formatDate, formatRelativeTime, getInitials } from '@/lib/utils';
+import { getAffiliateById, processPayout } from '@/lib/api';
+import { formatNaira, formatDate, getInitials } from '@/lib/utils';
 import { COMMISSION } from '@/lib/constants';
 import StatusBadge from '@/components/affiliates/StatusBadge';
 import PaymentConfirmModal from '@/components/affiliates/PaymentConfirmModal';
 import Toast from '@/components/ui/Toast';
-import { Affiliate, Referral, ReferralEvent } from '@/lib/types';
+import { Affiliate } from '@/lib/types';
 
 const typeBadgeStyles: Record<string, string> = {
   vcs: 'bg-blue/10 text-blue',
@@ -24,40 +24,22 @@ const typeLabels: Record<string, string> = {
   individual: 'Individual',
 };
 
-const refStatusStyles: Record<string, string> = {
-  signed_up: 'bg-blue/10 text-blue',
-  purchased: 'bg-green/10 text-green',
-  seller: 'bg-gold-light text-amber',
-};
-
-const refStatusLabels: Record<string, string> = {
-  signed_up: 'Signed Up',
-  purchased: 'Purchased',
-  seller: 'Seller',
-};
 
 export default function AffiliateDetailPage() {
   const params = useParams();
   const id = params.id as string;
 
   const [affiliate, setAffiliate] = useState<Affiliate | null>(null);
-  const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [events, setEvents] = useState<ReferralEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
   useEffect(() => {
-    Promise.all([
-      getAffiliateById(id),
-      getAffiliateReferrals(id),
-      getAffiliateEvents(id),
-    ]).then(([aff, refs, evts]) => {
+    getAffiliateById(id).then((aff) => {
       setAffiliate(aff ?? null);
-      setReferrals(refs);
-      setEvents(evts);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, [id]);
 
   if (loading) {
@@ -84,17 +66,19 @@ export default function AffiliateDetailPage() {
   const purchaseEarnings = a.totalOrders * COMMISSION.PURCHASE;
   const sellerEarnings = a.totalSellers * COMMISSION.SELLER_STORE;
 
-  function handlePayConfirm() {
+  async function handlePayConfirm() {
     const amount = a.pendingBalance;
-    const updates = {
-      totalPaid: a.totalPaid + amount,
-      pendingBalance: 0,
-      lastPaidDate: new Date().toISOString().split('T')[0],
-    };
-    updateAffiliate(a.id, updates);
-    setAffiliate({ ...a, ...updates });
-    setPayModalOpen(false);
-    setToastMessage(`${formatNaira(amount)} payment to ${a.name} marked as paid`);
+    setPaying(true);
+    try {
+      await processPayout(a.id, a.userId, amount);
+      setAffiliate({ ...a, totalPaid: a.totalPaid + amount, pendingBalance: 0 });
+      setToastMessage(`${formatNaira(amount)} payment to ${a.name} marked as paid`);
+    } catch {
+      setToastMessage('Payment failed. Please try again.');
+    } finally {
+      setPaying(false);
+      setPayModalOpen(false);
+    }
   }
 
   return (
@@ -128,10 +112,12 @@ export default function AffiliateDetailPage() {
                   {a.campus}
                 </span>
               )}
-              <span className="flex items-center gap-1">
-                <Calendar size={13} />
-                Joined {formatDate(a.dateJoined)}
-              </span>
+              {a.dateJoined && (
+                <span className="flex items-center gap-1">
+                  <Calendar size={13} />
+                  Joined {formatDate(a.dateJoined)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -207,79 +193,23 @@ export default function AffiliateDetailPage() {
       <div className="bg-white rounded-xl border border-border overflow-hidden mb-8">
         <div className="p-5 border-b border-border">
           <h2 className="text-sm font-semibold text-text-1 font-[var(--font-display)]">
-            Referrals ({referrals.length})
+            Referrals
           </h2>
         </div>
-        {referrals.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-sm text-text-3">No referrals yet.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  {['Name', 'Date Referred', 'Status', 'Order Amount', 'Order Date', 'Seller', 'Listings'].map((h) => (
-                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-text-3 py-3 px-4">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {referrals.map((ref) => (
-                  <tr key={ref.id} className="hover:bg-surface/30 transition-colors">
-                    <td className="py-3 px-4 text-sm font-medium text-text-1">{ref.userName}</td>
-                    <td className="py-3 px-4 text-sm text-text-2">{formatDate(ref.dateReferred)}</td>
-                    <td className="py-3 px-4">
-                      <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${refStatusStyles[ref.status]}`}>
-                        {refStatusLabels[ref.status]}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-mono tabular-nums text-text-1">
-                      {ref.orderAmount ? formatNaira(ref.orderAmount) : '\u2014'}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-text-2">
-                      {ref.orderDate ? formatDate(ref.orderDate) : '\u2014'}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-text-2">{ref.isSeller ? 'Yes' : 'No'}</td>
-                    <td className="py-3 px-4 text-sm font-mono text-text-2">{ref.listingCount || '\u2014'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="p-8 text-center">
+          <p className="text-sm text-text-3 max-w-xs mx-auto">
+            Individual referral tracking is being rolled out. Totals are live \u2014 detailed per-user data coming soon.
+          </p>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-border p-5">
         <h2 className="text-sm font-semibold text-text-1 font-[var(--font-display)] mb-4">
           Activity Timeline
         </h2>
-        {events.length === 0 ? (
-          <p className="text-sm text-text-3">No activity yet.</p>
-        ) : (
-          <div className="space-y-4">
-            {events.slice(0, 20).map((evt) => (
-              <div key={evt.id} className="flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-vynt mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-sm text-text-1">
-                    <span className="font-medium">{evt.referredUserName}</span>{' '}
-                    <span className="text-text-3">
-                      {evt.eventType === 'signup' && 'signed up'}
-                      {evt.eventType === 'purchase' && `made a purchase${evt.orderAmount ? ` (${formatNaira(evt.orderAmount)})` : ''}`}
-                      {evt.eventType === 'seller_store' && 'opened a seller store'}
-                    </span>
-                    {' '}
-                    <span className="text-xs text-vynt font-mono">+{formatNaira(evt.amount)}</span>
-                  </p>
-                  <p className="text-xs text-text-3 mt-0.5">{formatRelativeTime(evt.createdAt)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="text-sm text-text-3">
+          Event-level activity tracking coming soon.
+        </p>
       </div>
 
       {a.notes && (
@@ -295,6 +225,7 @@ export default function AffiliateDetailPage() {
         amount={a.pendingBalance}
         onConfirm={handlePayConfirm}
         onClose={() => setPayModalOpen(false)}
+        loading={paying}
       />
 
       <Toast

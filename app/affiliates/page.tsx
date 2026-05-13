@@ -8,7 +8,7 @@ import AddAffiliateModal from '@/components/affiliates/AddAffiliateModal';
 import PaymentConfirmModal from '@/components/affiliates/PaymentConfirmModal';
 import Toast from '@/components/ui/Toast';
 import { Affiliate, AffiliateFilters } from '@/lib/types';
-import { getAffiliates } from '@/lib/api';
+import { getAffiliates, processPayout } from '@/lib/api';
 import { formatNaira, formatPercent } from '@/lib/utils';
 import { Download, Plus } from 'lucide-react';
 import { ITEMS_PER_PAGE } from '@/lib/constants';
@@ -70,6 +70,7 @@ export default function AffiliatesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [payTarget, setPayTarget] = useState<Affiliate | null>(null);
   const [toastMessage, setToastMessage] = useState('');
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -100,16 +101,23 @@ export default function AffiliatesPage() {
     setPayTarget(affiliate);
   }, []);
 
-  const handlePayConfirm = useCallback(() => {
+  const handlePayConfirm = useCallback(async () => {
     if (!payTarget) return;
+    setPaying(true);
     const amount = payTarget.pendingBalance;
-    handleUpdateAffiliate(payTarget.id, {
-      totalPaid: payTarget.totalPaid + amount,
-      pendingBalance: 0,
-      lastPaidDate: new Date().toISOString().split('T')[0],
-    });
-    setPayTarget(null);
-    setToastMessage(`${formatNaira(amount)} payment to ${payTarget.name} marked as paid`);
+    try {
+      await processPayout(payTarget.id, payTarget.userId, amount);
+      handleUpdateAffiliate(payTarget.id, {
+        totalPaid: payTarget.totalPaid + amount,
+        pendingBalance: 0,
+      });
+      setToastMessage(`${formatNaira(amount)} payment to ${payTarget.name} marked as paid`);
+    } catch {
+      setToastMessage(`Payment failed. Please try again.`);
+    } finally {
+      setPaying(false);
+      setPayTarget(null);
+    }
   }, [payTarget, handleUpdateAffiliate]);
 
   return (
@@ -206,6 +214,7 @@ export default function AffiliatesPage() {
         amount={payTarget?.pendingBalance || 0}
         onConfirm={handlePayConfirm}
         onClose={() => setPayTarget(null)}
+        loading={paying}
       />
 
       <Toast

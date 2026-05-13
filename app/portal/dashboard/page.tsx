@@ -1,76 +1,153 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import DateFilter, { DatePeriod } from '@/components/portal/DateFilter';
 import EarningsHero from '@/components/portal/EarningsHero';
 import KPICards from '@/components/portal/KPICards';
 import PerformanceBars from '@/components/portal/PerformanceBars';
-import EarningsChart from '@/components/portal/EarningsChart';
-import ActivityFeed from '@/components/portal/ActivityFeed';
-import { affiliates } from '@/lib/mock-data/affiliates';
-import { referralEvents } from '@/lib/mock-data/referrals';
+import ReferralCodeBlock from '@/components/portal/ReferralCodeBlock';
+import { getAffiliates, getLeaderboard } from '@/lib/api';
+import { Affiliate } from '@/lib/types';
 
-// Hardcoded logged-in affiliate
-const TOMI = affiliates.find((a) => a.id === 'aff_001')!;
-const TOMI_EVENTS = referralEvents.filter((e) => e.affiliateId === 'aff_001');
+function Skeleton({ className }: { className: string }) {
+  return <div className={`animate-pulse bg-surface rounded-lg ${className}`} />;
+}
 
-// Tomi's weekly earnings (12 weeks, total = ₦82,000)
-const weeklyEarnings = [
-  { week: 'Jan 6', amount: 3500 },
-  { week: 'Jan 13', amount: 4500 },
-  { week: 'Jan 20', amount: 5500 },
-  { week: 'Jan 27', amount: 4000 },
-  { week: 'Feb 3', amount: 7000 },
-  { week: 'Feb 10', amount: 6500 },
-  { week: 'Feb 17', amount: 8000 },
-  { week: 'Feb 24', amount: 9500 },
-  { week: 'Mar 3', amount: 8500 },
-  { week: 'Mar 10', amount: 10000 },
-  { week: 'Mar 17', amount: 9000 },
-  { week: 'Mar 24', amount: 6000 },
-];
+function LoadingState() {
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <Skeleton className="h-8 w-48" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+      </div>
+      <Skeleton className="h-32" />
+      <Skeleton className="h-20" />
+    </div>
+  );
+}
 
-const VCS_TOTAL = affiliates.filter((a) => a.type === 'vcs').length;
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="p-6 max-w-5xl mx-auto flex flex-col items-center justify-center py-20">
+      <p className="text-sm text-text-2 mb-4">{message}</p>
+      <button
+        onClick={onRetry}
+        className="px-4 py-2 text-sm font-medium bg-vynt text-white rounded-lg hover:bg-vynt-mid transition-colors"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
+  const [affiliate, setAffiliate] = useState<Affiliate | null>(null);
+  const [rank, setRank] = useState(1);
+  const [totalAffiliates, setTotalAffiliates] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<DatePeriod>('30d');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [affiliates, leaderboard] = await Promise.all([
+        getAffiliates(),
+        getLeaderboard(),
+      ]);
+      if (affiliates.length === 0) {
+        setError('No affiliate data found.');
+        return;
+      }
+      const me = affiliates[0];
+      const myRankEntry = leaderboard.findIndex((e) => e.id === me.id);
+      setAffiliate(me);
+      setRank(myRankEntry >= 0 ? myRankEntry + 1 : leaderboard.length);
+      setTotalAffiliates(affiliates.length);
+    } catch {
+      setError('Unable to load data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load, refreshKey]);
+
+  if (loading) return <LoadingState />;
+  if (error || !affiliate) {
+    return (
+      <ErrorState
+        message={error ?? 'Unable to load data. Please try again.'}
+        onRetry={() => setRefreshKey((k) => k + 1)}
+      />
+    );
+  }
+
+  const a = affiliate;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <PortalHeader
-        title={`Welcome back, ${TOMI.name.split(' ')[0]}`}
+        title={`Welcome back, ${a.name.split(' ')[0]}`}
         subtitle="Here's how your referrals are performing."
         actions={<DateFilter value={period} onChange={setPeriod} />}
       />
 
       <EarningsHero
-        totalEarned={TOMI.totalEarned}
-        periodChange={TOMI.pendingBalance}
-        paidOut={TOMI.totalPaid}
-        pending={TOMI.pendingBalance}
-        rank={1}
-        totalVcsAffiliates={VCS_TOTAL}
+        totalEarned={a.totalEarned}
+        periodChange={a.pendingBalance}
+        paidOut={a.totalPaid}
+        pending={a.pendingBalance}
+        rank={rank}
+        totalVcsAffiliates={totalAffiliates}
       />
 
       <KPICards
-        signups={TOMI.totalSignups}
-        purchases={TOMI.totalOrders}
-        sellers={TOMI.totalSellers}
-        gmv={TOMI.totalGmv}
+        signups={a.totalSignups}
+        purchases={a.totalOrders}
+        sellers={a.totalSellers}
+        gmv={0}
       />
 
       <div className="mb-6">
         <PerformanceBars
-          signups={TOMI.totalSignups}
-          purchases={TOMI.totalOrders}
-          sellers={TOMI.totalSellers}
+          signups={a.totalSignups}
+          purchases={a.totalOrders}
+          sellers={a.totalSellers}
         />
       </div>
 
+      {a.code && (
+        <div className="mb-6">
+          <ReferralCodeBlock
+            code={a.code}
+            referralLink={`https://vynt.ng/ref/${a.code.toLowerCase()}`}
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <EarningsChart data={weeklyEarnings} />
-        <ActivityFeed events={TOMI_EVENTS} />
+        {/* Earnings chart — time-series data not yet available from API */}
+        <div className="bg-white rounded-xl border border-border p-6 flex flex-col items-center justify-center min-h-[200px]">
+          <p className="text-sm font-semibold text-text-2 mb-1">Earnings History</p>
+          <p className="text-xs text-text-3 text-center max-w-xs">
+            Live earnings chart coming soon. Check your totals above for current earnings.
+          </p>
+        </div>
+
+        {/* Activity feed — event-level data not yet available from API */}
+        <div className="bg-white rounded-xl border border-border p-6">
+          <p className="text-sm font-bold text-text-1 mb-3">Recent Activity</p>
+          <p className="text-xs text-text-3 leading-relaxed">
+            Activity feed will show your referral events in real-time once tracking is fully live.
+            Check your stats above for current totals.
+          </p>
+        </div>
       </div>
     </div>
   );
